@@ -105,6 +105,7 @@ def main(files, root, dst):
 		save_numpy(os.path.join(dst, DST_MELSPECS), fname=fname, arr=melpec)
 		save_numpy(os.path.join(dst, DST_MFCC), fname=fname, arr=mfcc)
 
+print("")
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Prepare audio features')
