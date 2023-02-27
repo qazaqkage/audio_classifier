@@ -1,18 +1,41 @@
 import os
-import argparse
 
+import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 from tqdm import tqdm
 
+from glob import glob
+import IPython.display as ipd
+
+
 import librosa
+from librosa import display as dp
+from scipy.io import wavfile
+
+import argparse
+#--------------------------
+
+dst_spec = 'spectrograms'
+dst_melspecs = 'melspectrograms'
+dst_mfcc = 'mfcc'
+dst_rms = 'rms'
+dst_chroma = 'chroma'
+dst_tempogram = 'tempogram'
+
+root = 'C:/Users/LEGION/Desktop/Jupyret/datasets/recordings/'
+files = os.listdir(root)
+
+ind = 0
+f = os.path.join(root, files[ind])
+print(f)
 
 
-DST_SPEC = 'spectrograms'
-DST_MELSPECS = 'melspectrograms'
-DST_MFCC = 'mfcc'
+audio=glob('C:/Users/LEGION/Desktop/Jupyret/datasets/recordings/*')
+print(ipd.Audio(audio[1623]))
 
-
+print(f'{len(files)} FILES IN FOLDER')
 def extract_spectrogram(y, sr=8000, n_fft=None) -> np.array:
 	'''
 	y = time series audio
@@ -48,6 +71,45 @@ def extract_mfcc(y, sr=8000, n_mfcc=20):
 	'''
 	mfcc = librosa.feature.mfcc(y=y, sr=sr)
 	return mfcc
+
+
+def extract_rms(y) -> np.array:
+	'''
+    y = time series audio
+    S = spectogram magnitude
+    phase = position of a sound wave in time
+
+    returns: array of rms
+    '''
+	S, phase = librosa.magphase(librosa.stft(y))
+	rms = librosa.feature.rms(S=S)
+	return rms
+
+
+def extract_chromagram(y, sr=8000):
+	'''
+    y = time series audio
+    sr = sample rate (8000 by default)
+
+    returns: array of chromagram
+    '''
+
+	chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+	return chroma
+
+
+def extract_tempogram(y, sr=8000, hop_length=512):
+	'''
+    y = time series audio
+    sr = sample rate (8000 by default)
+    hop_length = the length of the non-intersecting portion of window length (512 by default)
+
+    returns: array of chromagram
+    '''
+	oenv = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+	tempogram = librosa.feature.tempogram(onset_envelope=oenv, sr=sr, hop_length=hop_length)
+
+	return tempogram
 
 def cut_if_necessary(y, size=8000):
 	'''
@@ -87,7 +149,7 @@ def make_dirs(dst, list_dirs):
 
 
 def main(files, root, dst):
-	make_dirs(dst, [DST_SPEC, DST_MELSPECS, DST_MFCC])
+	make_dirs(dst, [dst_rms, dst_mfcc, dst_spec, dst_chroma, dst_melspecs, dst_tempogram])
 
 	for f in tqdm(files):
 		fpath = os.path.join(root, f)
@@ -100,13 +162,18 @@ def main(files, root, dst):
 		spec = extract_spectrogram(y)
 		melpec = extract_melspectrogram(y)
 		mfcc = extract_mfcc(y)
+		rms = extract_rms(y)
+		chroma = extract_chromagram(y)
+		tempogram = extract_tempogram(y)
+
+		save_numpy(os.path.join(dst, dst_spec), fname=fname, arr=spec)
+		save_numpy(os.path.join(dst, dst_melspecs), fname=fname, arr=melpec)
+		save_numpy(os.path.join(dst, dst_mfcc), fname=fname, arr=mfcc)
+		save_numpy(os.path.join(dst, dst_rms), fname=fname, arr=rms)
+		save_numpy(os.path.join(dst, dst_chroma), fname=fname, arr=chroma)
+		save_numpy(os.path.join(dst, dst_tempogram), fname=fname, arr=tempogram)
+
 		
-		save_numpy(os.path.join(dst, DST_SPEC), fname=fname, arr=spec)
-		save_numpy(os.path.join(dst, DST_MELSPECS), fname=fname, arr=melpec)
-		save_numpy(os.path.join(dst, DST_MFCC), fname=fname, arr=mfcc)
-
-#Udalenie printa
-
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Prepare audio features')
 	parser.add_argument("src_folder", type=str, help="[input] to a folder with raw wav files")
