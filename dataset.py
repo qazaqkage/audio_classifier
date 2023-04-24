@@ -1,39 +1,66 @@
 import os
 
 import pandas as pd
+import numpy as np
 
 import torch
+import torchaudio
 from torch.utils.data import Dataset
 from torchaudio.transforms import MelSpectrogram, Resample
 from torchaudio import load as load_audio
+from analyse import audio_file_dict
+import torch.nn.functional as F
+from analyse import spec, max_h, max_w
 
 
-class AudioDataset(Dataset):
+class EmotionDataset(Dataset):
+    def __init__(self, audio_file_dict):
+        self.audio_fie_dict = audio_file_dict
+
+    def __getitem__(self, index):
+        img = list(audio_file_dict.index)[index]
+        img, _ = torchaudio.load(img)
+        img = torch.mean(img, dim=0).unsqueeze(0)
+        img = torchaudio.transforms.Spectrogram()(img)
+        img = F.pad(img, [0, max_w - img.size(2), 0, max_h - img.size(1)])
+
+        label = pd.get_dummies(audio_file_dict.emotion)[index]
+        label = np.array(label)
+        label = torch.from_numpy(label)
+        return (img, label)
+
+    def __len__(self):
+        count = len(audio_file_dict)
+        return count
+
+
+
+class MyCustomDataset(Dataset):
 	"""a custom pytorch Dataset for audio classifier"""
-	def __init__(self, src_dir, labels_path, transforms, target_sample_rate, train_duration):
-		self.src_dir = src_dir
-		self.labels = pd.read_csv(labels_path, sep='\t')
-		self.transforms = transforms
-		self.target_sample_rate = target_sample_rate
-		self.num_samples = int(train_duration * target_sample_rate)
-
+	def __init__(self, audio_file_dict):
+		self.audio_fie_dict = audio_file_dict
 
 	def __len__(self):
-		return len(self.labels)
+		count = len(audio_file_dict)
+		return count
 
+	def __getitem__(self, index):
+		img = list(audio_file_dict.index)[index]
+		img, _ = torchaudio.load(img)
+		img = torch.mean(img, dim=0).unsqueeze(0)
+		img = torchaudio.transforms.Spectrogram()(img)
+		img = F.pad(img, [0, max_w - img.size(2), 0, max_h - img.size(1)])
 
-	def __getitem__(self, idx):
-		audio_path = os.path.join(self.src_dir, self.labels.iloc[idx, 0])
-		label = self.labels.iloc[idx, 1]
+		def labeler(name):
+			if name == 'male':
+				return (1)
+			else:
+				return (0)
 
-		signal, sr = load_audio(audio_path, normalize=True)
-		signal = self._resample_if_necessary(signal, sr)
-		signal = self._mix_down_if_necessary(signal)
-		signal = self._cut_if_necessary(signal)
-		signal = self._right_pad_if_necessary(signal)
-		signal = self.transforms(signal)
-
-		return signal, label
+		label = list(audio_file_dict.actor_sex)[index]
+		label = np.array(labeler(label))
+		label = torch.from_numpy(label)
+		return (img, label)
 
 
 	def _cut_if_necessary(self, signal):
@@ -62,3 +89,6 @@ class AudioDataset(Dataset):
 		if signal.shape[0] > 1:
 			signal = torch.mean(signal, dim=0, keepdim=True)
 		return signal
+
+	train_data = EmotionDataset(audio_file_dict=X_train)
+	test_data = EmotionDataset(audio_file_dict=X_test)
